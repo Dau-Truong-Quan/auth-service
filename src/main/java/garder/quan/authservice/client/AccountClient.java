@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class AccountClient {
@@ -20,6 +21,18 @@ public class AccountClient {
                          @Value("${account.service.url}") String accountServiceUrl) {
         this.restTemplate = restTemplate;
         this.accountServiceUrl = accountServiceUrl;
+    }
+
+    /** Fetches account info by ID — used when refreshing a token. */
+    public AccountInfo getAccountById(UUID accountId) {
+        try {
+            return restTemplate.getForObject(
+                    accountServiceUrl + "/api/accounts/" + accountId,
+                    AccountInfo.class
+            );
+        } catch (HttpClientErrorException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account not found");
+        }
     }
 
     /**
