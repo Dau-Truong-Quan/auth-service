@@ -53,4 +53,56 @@ public class AccountClient {
             throw e;
         }
     }
+
+    /**
+     * Find-or-create an account from a Google identity. Caller is responsible for
+     * having verified the Google ID token before invoking this.
+     */
+    public AccountInfo findOrCreateGoogleAccount(String email, String displayName, String googleSub) {
+        try {
+            return restTemplate.postForObject(
+                    accountServiceUrl + "/api/accounts/google-upsert",
+                    Map.of(
+                            "email", email,
+                            "displayName", displayName == null ? "" : displayName,
+                            "googleSub", googleSub
+                    ),
+                    AccountInfo.class
+            );
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google account is not active");
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Calls account-service to create a new account. The plain password is sent in
+     * the {@code passwordHash} field (the account-service BCrypt-encodes it before persisting).
+     * Returns the created account info; surfaces 409 on duplicate username/email.
+     */
+    public AccountInfo register(String username, String email, String password) {
+        try {
+            return restTemplate.postForObject(
+                    accountServiceUrl + "/api/accounts",
+                    Map.of(
+                            "username", username,
+                            "email", email,
+                            "passwordHash", password,
+                            "status", "ACTIVE",
+                            "role", "USER"
+                    ),
+                    AccountInfo.class
+            );
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Username or email already exists");
+            }
+            if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid registration data");
+            }
+            throw e;
+        }
+    }
 }
